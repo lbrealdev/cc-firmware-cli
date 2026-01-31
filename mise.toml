@@ -1,2 +1,5 @@
 [tools]
 github-cli = "latest"
+
+[settings]
+trusted_config_paths = ["."]

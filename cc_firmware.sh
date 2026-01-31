@@ -21,7 +21,7 @@ check_dependencies() {
 check_ck_public_key() {
   local key_fingerprint
   # Use --no-tty and --batch to prevent interactive prompts
-  key_fingerprint=$(gpg --batch --no-tty --list-keys --with-colons 2>/dev/null | grep -i "coinkite" | grep "^fpr" | head -1 | cut -d: -f10 || true)
+  key_fingerprint=$(gpg --batch --no-tty --list-keys --with-colons 2>/dev/null | grep -i -B2 "coinkite" | grep "^fpr" | head -1 | cut -d: -f10 || true)
 
   if [ -z "$key_fingerprint" ]; then
     echo "Error: Coinkite public key not found."

@@ -87,6 +87,14 @@ check_ck_public_key() {
   fi
 }
 
+verify_pgp_signature() {
+  if gpg --verify signatures.txt >/dev/null 2>&1; then
+    echo "Signature valid"
+  else
+    echo "Signature invalid"
+  fi
+}
+
 download_firmware() {
 
   local _firmware_version="$1"
@@ -149,7 +157,38 @@ download_firmware() {
     exit 1
   fi
 
-  echo "Successfully downloaded: $firmware_file"
+  echo ""
+  echo "> Successfully downloaded: $firmware_file"
+}
+
+download_signature() {
+  local signatures_url="https://raw.githubusercontent.com/Coldcard/firmware/master/releases/signatures.txt"
+  local signatures_file="signatures.txt"
+
+  echo ""
+  echo "Downloading firmware signatures..."
+
+  # Remove old signature file if exists (always download fresh)
+  if [ -f "$signatures_file" ]; then
+    echo "Removing old signature file..."
+    rm -f "$signatures_file"
+  fi
+
+  # Download fresh signature file
+  if ! curl -fsSLo "$signatures_file" "$signatures_url"; then
+    echo "Error: Failed to download signatures file from $signatures_url"
+    exit 1
+  fi
+
+  # Validate file is not empty
+  if [ ! -s "$signatures_file" ]; then
+    echo "Error: Downloaded signatures file is empty."
+    rm -f "$signatures_file"
+    exit 1
+  fi
+
+  echo ""
+  echo "> Successfully downloaded: $signatures_file"
 }
 
 main() {
@@ -162,7 +201,9 @@ main() {
 
   check_dependencies
   check_ck_public_key
+  download_signature
   download_firmware "$FIRMWARE_VERSION"
+  verify_pgp_signature
 }
 
 main "$@"

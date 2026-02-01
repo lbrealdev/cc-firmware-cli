@@ -6,3 +6,9 @@
 
 # Firmware files
 *.dfu
+
+# Signature files
+signatures.txt
+
+# Test directory
+test/

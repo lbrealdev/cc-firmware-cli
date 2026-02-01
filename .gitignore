@@ -1,0 +1,14 @@
+# IDEs and editors
+.idea/
+
+# Temporary data files
+*.json
+
+# Firmware files
+*.dfu
+
+# Signature files
+signatures.txt
+
+# Test directory
+test/

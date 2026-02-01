@@ -1,0 +1,12 @@
+[settings]
+trusted_config_paths = ["."]
+
+[tasks.rm-signature]
+description = 'Remove signature.txt file'
+run = 'find . -type f -name "signatures.txt" -exec rm -rf "{}" \;'
+
+[tasks.rm-firmware]
+description = 'Remove firmware files'
+run = 'find . -type f -name "*.dfu" -exec rm -rf "{}" \;'
+depends = ["rm-signature"]
+alias = 'rm'

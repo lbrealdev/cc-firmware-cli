@@ -1,0 +1,9 @@
+[tools]
+github-cli = "latest"
+
+[settings]
+trusted_config_paths = ["."]
+
+[tasks.rm]
+description = 'Remove firmware file'
+run = 'find . -type f -name "*.dfu" -exec rm -rf "{}" \;'

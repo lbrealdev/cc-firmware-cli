@@ -93,27 +93,54 @@ download_firmware() {
   local firmware_platform="mk4-coldcard"
   local firmware_ext="dfu"
 
-  ck_gh_tag_version=$(git ls-remote -t https://github.com/"$COINKITE_GITHUB_REPO".git | awk '{print $2}' | grep "$_firmware_version" | head -1)
+  ck_gh_tag_version=$(git ls-remote -t https://github.com/"$COINKITE_GITHUB_REPO".git | awk '{print $2}' | grep "$_firmware_version" | head -1 || true)
+
+  # Validate that a matching tag was found
+  if [ -z "$ck_gh_tag_version" ]; then
+    echo "Error: Version $_firmware_version not found."
+    echo ""
+    echo "You can find available firmware versions at:"
+    echo "  - GitHub releases: https://github.com/Coldcard/firmware/tags"
+    echo "  - Coldcard downloads: https://coldcard.com/downloads/mk4"
+    exit 1
+  fi
+
   ck_firmware_version=${ck_gh_tag_version//refs\/tags\/}
 
-  local firmware_url="https://coldcard.com/downloads/"
   local firmware_file="${ck_firmware_version}-${firmware_platform}.${firmware_ext}"
+  local firmware_url="https://coldcard.com/downloads/${firmware_file}"
 
-#  echo ""
-#  echo "Checking for existing firmware..."
+  # Check for existing .dfu files
+  local existing_dfu
+  existing_dfu=$(find . -maxdepth 1 -name "*.dfu" -type f 2>/dev/null)
 
-#  # Check for any existing .dfu files
-#  local existing_dfu
-#  existing_dfu=$(find . -maxdepth 1 -name "*.dfu" -type f 2>/dev/null | head -1)
-#
-#  if [ -n "$existing_dfu" ]; then
-#    echo "Found existing firmware: $(basename "$existing_dfu")"
-#    echo "Skipping download."
-#    return 0
-#  fi
-#
-#  # Download the firmware
-#  echo "Firmware not found locally."
+  if [ -n "$existing_dfu" ]; then
+    # Count and list existing files
+    local dfu_count
+    dfu_count=$(echo "$existing_dfu" | wc -l)
+    echo ""
+    echo "Found $dfu_count firmware file(s) in current directory:"
+    echo "$existing_dfu" | while read -r file; do
+      echo "  - $(basename "$file")"
+    done
+    echo ""
+
+    # Check if exact version already exists
+    if [ -f "$firmware_file" ]; then
+      echo "Requested version already exists: $firmware_file"
+      echo "Skipping download."
+      return 0
+    fi
+
+    # Different version exists - ask user
+    echo "You requested: $firmware_file"
+    echo ""
+    read -p "Download requested version? (y/N): " response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+      echo "Download cancelled."
+      return 0
+    fi
+  fi
 
   echo "Downloading firmware..."
 

@@ -150,7 +150,7 @@ download_firmware() {
   echo ""
   echo "Downloading firmware..."
 
-  if ! curl -fsSLo "$firmware_file" "$firmware_url"; then
+  if ! curl -fsSLo "$firmware_file" --max-time 30 "$firmware_url"; then
     echo "Error: Failed to download firmware."
     exit 1
   fi

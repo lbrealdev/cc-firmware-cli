@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_NAME="$(basename "$0")"
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FIRMWARE_VERSION=""
+FIRMWARE_FILE=""
 
 # COINKITE CONFIG VARIABLES
 COINKITE_PGP_PUBLIC_KEY="0xA3A31BAD5A2A5B10"
@@ -87,14 +88,6 @@ check_ck_public_key() {
   fi
 }
 
-verify_pgp_signature() {
-  if gpg --verify signatures.txt >/dev/null 2>&1; then
-    echo "Signature valid"
-  else
-    echo "Signature invalid"
-  fi
-}
-
 download_firmware() {
 
   local _firmware_version="$1"
@@ -146,10 +139,11 @@ download_firmware() {
     read -p "Download requested version? (y/N): " response
     if [[ ! "$response" =~ ^[Yy]$ ]]; then
       echo "Download cancelled."
-      return 0
+      exit 0
     fi
   fi
 
+  echo ""
   echo "Downloading firmware..."
 
   if ! curl -fsSLo "$firmware_file" "$firmware_url"; then
@@ -159,10 +153,13 @@ download_firmware() {
 
   echo ""
   echo "> Successfully downloaded: $firmware_file"
+
+  # Set global variable for later use
+  FIRMWARE_FILE="$firmware_file"
 }
 
 download_signature() {
-  local signatures_url="https://raw.githubusercontent.com/Coldcard/firmware/master/releases/signatures.txt"
+  local signatures_url="https://raw.githubusercontent.com/$COINKITE_GITHUB_REPO/master/releases/signatures.txt"
   local signatures_file="signatures.txt"
 
   echo ""
@@ -191,6 +188,60 @@ download_signature() {
   echo "> Successfully downloaded: $signatures_file"
 }
 
+verify_signatures_file() {
+  echo ""
+  echo "Verifying signatures.txt PGP signature..."
+
+  if ! gpg --verify signatures.txt >/dev/null 2>&1; then
+    echo "Error: Failed to verify signatures.txt PGP signature."
+    exit 1
+  fi
+
+  echo "Signature verified successfully."
+}
+
+verify_firmware_hash() {
+  echo ""
+  echo "Verifying firmware hash..."
+
+  if [ ! -f "$FIRMWARE_FILE" ]; then
+    echo "Error: Firmware file not found: $FIRMWARE_FILE"
+    exit 1
+  fi
+
+  echo ""
+  echo "Calculating firmware hash..."
+  local actual_hash
+  actual_hash=$(sha256sum "$FIRMWARE_FILE" | awk '{print $1}')
+  echo "  Actual hash: $actual_hash"
+
+  echo ""
+  echo "Looking up expected hash in signatures..."
+  local expected_line
+  expected_line=$(grep "$FIRMWARE_FILE" signatures.txt || true)
+
+  if [ -z "$expected_line" ]; then
+    echo "Error: Firmware file not found in signatures.txt"
+    exit 1
+  fi
+
+  local expected_hash
+  expected_hash=$(echo "$expected_line" | awk '{print $1}')
+  echo "  Expected hash: $expected_hash"
+  echo "  File: $(echo "$expected_line" | awk '{print $2}')"
+
+  if [ "$actual_hash" = "$expected_hash" ]; then
+    echo ""
+    echo "✓ Firmware hash verified successfully!"
+  else
+    echo ""
+    echo "Error: Hash mismatch!"
+    echo "  Calculated: $actual_hash"
+    echo "  Expected:   $expected_hash"
+    exit 1
+  fi
+}
+
 main() {
   parse_args "$@"
 
@@ -203,7 +254,8 @@ main() {
   check_ck_public_key
   download_signature
   download_firmware "$FIRMWARE_VERSION"
-  verify_pgp_signature
+  verify_signatures_file
+  verify_firmware_hash
 }
 
 main "$@"

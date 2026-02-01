@@ -5,7 +5,10 @@ set -euo pipefail
 SCRIPT_NAME="$(basename "$0")"
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FIRMWARE_VERSION=""
+
+# COINKITE CONFIG VARIABLES
 COINKITE_PGP_PUBLIC_KEY="0xA3A31BAD5A2A5B10"
+COINKITE_GITHUB_REPO="Coldcard/firmware"
 
 show_usage() {
   echo "Usage: $SCRIPT_NAME --version <X.Y.Z>"
@@ -53,8 +56,8 @@ check_dependencies() {
     exit 1
   fi
 
-  if ! command -v gh > /dev/null; then
-    echo "gh is not installed or not in PATH."
+  if ! command -v git > /dev/null; then
+    echo "git is not installed or not in PATH."
     exit 1
   fi
 }
@@ -85,31 +88,40 @@ check_ck_public_key() {
 }
 
 download_firmware() {
-  local firmware_url="https://github.com/Coldcard/firmware/releases/download/${FIRMWARE_VERSION}/firmware-${FIRMWARE_VERSION}.dfu"
-  local firmware_file="firmware-${FIRMWARE_VERSION}.dfu"
-  
-  echo ""
-  echo "Checking for existing firmware..."
-  
-  # Check for any existing .dfu files
-  local existing_dfu
-  existing_dfu=$(find . -maxdepth 1 -name "*.dfu" -type f 2>/dev/null | head -1)
-  
-  if [ -n "$existing_dfu" ]; then
-    echo "Found existing firmware: $(basename "$existing_dfu")"
-    echo "Skipping download."
-    return 0
-  fi
-  
-  # Download the firmware
-  echo "Firmware not found locally."
+
+  local _firmware_version="$1"
+  local firmware_platform="mk4-coldcard"
+  local firmware_ext="dfu"
+
+  ck_gh_tag_version=$(git ls-remote -t https://github.com/"$COINKITE_GITHUB_REPO".git | awk '{print $2}' | grep "$_firmware_version" | head -1)
+  ck_firmware_version=${ck_gh_tag_version//refs\/tags\/}
+
+  local firmware_url="https://coldcard.com/downloads/"
+  local firmware_file="${ck_firmware_version}-${firmware_platform}.${firmware_ext}"
+
+#  echo ""
+#  echo "Checking for existing firmware..."
+
+#  # Check for any existing .dfu files
+#  local existing_dfu
+#  existing_dfu=$(find . -maxdepth 1 -name "*.dfu" -type f 2>/dev/null | head -1)
+#
+#  if [ -n "$existing_dfu" ]; then
+#    echo "Found existing firmware: $(basename "$existing_dfu")"
+#    echo "Skipping download."
+#    return 0
+#  fi
+#
+#  # Download the firmware
+#  echo "Firmware not found locally."
+
   echo "Downloading firmware..."
-  
-  if ! curl -L --progress-bar -o "$firmware_file" "$firmware_url"; then
+
+  if ! curl -fsSLo "$firmware_file" "$firmware_url"; then
     echo "Error: Failed to download firmware."
     exit 1
   fi
-  
+
   echo "Successfully downloaded: $firmware_file"
 }
 
@@ -123,7 +135,7 @@ main() {
 
   check_dependencies
   check_ck_public_key
-  download_firmware
+  download_firmware "$FIRMWARE_VERSION"
 }
 
 main "$@"

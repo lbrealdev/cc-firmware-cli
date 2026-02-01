@@ -1,4 +1,8 @@
 # IDEs and editors
 .idea/
 
+# Temporary data files
 *.json
+
+# Firmware files
+*.dfu

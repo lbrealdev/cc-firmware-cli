@@ -65,13 +65,14 @@ check_dependencies() {
 
 # Check if the Coinkite public key is imported.
 check_ck_public_key() {
+  echo "Checking Coinkite PGP key..."
+  
   local key_fingerprint
   # Use --no-tty and --batch to prevent interactive prompts
   key_fingerprint=$(gpg --batch --no-tty --list-keys --with-colons 2>/dev/null | grep -i -B2 "coinkite" | grep "^fpr" | head -1 | cut -d: -f10 || true)
 
   if [ -z "$key_fingerprint" ]; then
-    echo "Coinkite public key not found."
-    echo "Importing Coinkite public key..."
+    echo "  Key not found, importing from keyserver..."
     import_ck_public_key
     
     # Verify the key was imported successfully
@@ -81,18 +82,18 @@ check_ck_public_key() {
       echo "Error: Failed to import Coinkite public key."
       exit 1
     fi
-    
-    echo "Successfully imported Coinkite key: $key_fingerprint"
-  else
-    echo "Found Coinkite key: $key_fingerprint"
   fi
+  
+  echo "✓ Key ready: $key_fingerprint"
 }
 
 download_firmware() {
-
   local _firmware_version="$1"
   local firmware_platform="mk4-coldcard"
   local firmware_ext="dfu"
+
+  echo ""
+  echo "Validating firmware version $_firmware_version..."
 
   ck_gh_tag_version=$(git ls-remote -t https://github.com/"$COINKITE_GITHUB_REPO".git | awk '{print $2}' | grep "$_firmware_version" | head -1 || true)
 
@@ -105,6 +106,8 @@ download_firmware() {
     echo "  - Coldcard downloads: https://coldcard.com/downloads/mk4"
     exit 1
   fi
+
+  echo "✓ Version found on GitHub"
 
   ck_firmware_version=${ck_gh_tag_version//refs\/tags\/}
 
@@ -130,6 +133,7 @@ download_firmware() {
     if [ -f "$firmware_file" ]; then
       echo "Requested version already exists: $firmware_file"
       echo "Skipping download."
+      FIRMWARE_FILE="$firmware_file"
       return 0
     fi
 
@@ -146,13 +150,12 @@ download_firmware() {
   echo ""
   echo "Downloading firmware..."
 
-  if ! curl -fsSLo "$firmware_file" "$firmware_url"; then
+  if ! curl -fsSLo "$firmware_file" --max-time 30 "$firmware_url"; then
     echo "Error: Failed to download firmware."
     exit 1
   fi
 
-  echo ""
-  echo "> Successfully downloaded: $firmware_file"
+  echo "> $firmware_file"
 
   # Set global variable for later use
   FIRMWARE_FILE="$firmware_file"
@@ -163,11 +166,11 @@ download_signature() {
   local signatures_file="signatures.txt"
 
   echo ""
-  echo "Downloading firmware signatures..."
+  echo "Downloading signatures..."
 
   # Remove old signature file if exists (always download fresh)
   if [ -f "$signatures_file" ]; then
-    echo "Removing old signature file..."
+    echo "  Removing old signature file..."
     rm -f "$signatures_file"
   fi
 
@@ -184,20 +187,19 @@ download_signature() {
     exit 1
   fi
 
-  echo ""
-  echo "> Successfully downloaded: $signatures_file"
+  echo "> $signatures_file"
 }
 
 verify_signatures_file() {
   echo ""
-  echo "Verifying signatures.txt PGP signature..."
+  echo "Verifying PGP signature..."
 
   if ! gpg --verify signatures.txt >/dev/null 2>&1; then
     echo "Error: Failed to verify signatures.txt PGP signature."
     exit 1
   fi
 
-  echo "Signature verified successfully."
+  echo "✓ Signature valid"
 }
 
 verify_firmware_hash() {
@@ -209,14 +211,10 @@ verify_firmware_hash() {
     exit 1
   fi
 
-  echo ""
-  echo "Calculating firmware hash..."
   local actual_hash
   actual_hash=$(sha256sum "$FIRMWARE_FILE" | awk '{print $1}')
-  echo "  Actual hash: $actual_hash"
+  echo "  Actual:   $actual_hash"
 
-  echo ""
-  echo "Looking up expected hash in signatures..."
   local expected_line
   expected_line=$(grep "$FIRMWARE_FILE" signatures.txt || true)
 
@@ -227,12 +225,10 @@ verify_firmware_hash() {
 
   local expected_hash
   expected_hash=$(echo "$expected_line" | awk '{print $1}')
-  echo "  Expected hash: $expected_hash"
-  echo "  File: $(echo "$expected_line" | awk '{print $2}')"
+  echo "  Expected: $expected_hash"
 
   if [ "$actual_hash" = "$expected_hash" ]; then
-    echo ""
-    echo "✓ Firmware hash verified successfully!"
+    echo "✓ Hash verified"
   else
     echo ""
     echo "Error: Hash mismatch!"
@@ -252,8 +248,8 @@ main() {
 
   check_dependencies
   check_ck_public_key
-  download_signature
   download_firmware "$FIRMWARE_VERSION"
+  download_signature
   verify_signatures_file
   verify_firmware_hash
 }

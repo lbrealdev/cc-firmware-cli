@@ -3,10 +3,13 @@
 set -euo pipefail
 
 SCRIPT_NAME="$(basename "$0")"
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FIRMWARE_VERSION=""
 FIRMWARE_FILE=""
+FIRMWARE_HASH=""
+FIRMWARE_MODEL="mk"
+FIRMWARE_FACTORY=0
 ASSUME_YES=0
+DRY_RUN=0
 
 # COINKITE CONFIG VARIABLES
 COINKITE_PGP_PUBLIC_KEY="0xA3A31BAD5A2A5B10"
@@ -21,14 +24,17 @@ HASH_CMD=()
 
 show_usage() {
   cat <<EOF
-Usage: $SCRIPT_NAME --version <X.Y.Z> [--yes|-y]
+Usage: $SCRIPT_NAME --version <X.Y.Z> [options]
 
-Download and verify ColdCard MK4 firmware.
+Download and verify ColdCard firmware from official Coinkite sources.
 
 Options:
-  --version <X.Y.Z>  Firmware version to download (required)
-  --yes, -y          Skip confirmation when other .dfu files exist
-  --help, -h         Show this help and exit
+  --version <X.Y.Z>     Firmware version to download (required)
+  --model <mk|q1>       Device model (default: mk)
+  --factory             Select factory firmware build
+  --dry-run             Verify manifest and show planned download; do not fetch .dfu
+  --yes, -y             Skip confirmation when other .dfu files exist
+  --help, -h            Show this help and exit
 EOF
 }
 
@@ -53,6 +59,23 @@ parse_args() {
           echo "Error: --version requires a version in X.Y.Z format (e.g., 5.4.1)"
           exit 1
         fi
+        ;;
+      --model)
+        if [[ -n "${2:-}" && ( "$2" == "mk" || "$2" == "q1" ) ]]; then
+          FIRMWARE_MODEL="$2"
+          shift 2
+        else
+          echo "Error: --model requires 'mk' or 'q1'"
+          exit 1
+        fi
+        ;;
+      --factory)
+        FIRMWARE_FACTORY=1
+        shift
+        ;;
+      --dry-run)
+        DRY_RUN=1
+        shift
         ;;
       --yes|-y)
         ASSUME_YES=1
@@ -100,7 +123,6 @@ file_sha256() {
 check_dependencies() {
   require_command gpg
   require_command curl
-  require_command git
   require_command awk
   require_command grep
   resolve_hash_command
@@ -149,24 +171,55 @@ check_ck_public_key() {
   echo "✓ Key ready: $key_fingerprint"
 }
 
-resolve_firmware_tag() {
+# Build regex for candidate product suffixes from --model / --factory.
+product_suffix_regex() {
+  local factory_part=""
+  if [[ "$FIRMWARE_FACTORY" -eq 1 ]]; then
+    factory_part="-factory"
+  fi
+
+  case "$FIRMWARE_MODEL" in
+    mk)
+      # Accept both historical mk4 and current mk production names.
+      printf -- '-(mk4|mk)-coldcard%s\\.dfu$' "$factory_part"
+      ;;
+    q1)
+      printf -- '-q1-coldcard%s\\.dfu$' "$factory_part"
+      ;;
+    *)
+      echo "Error: Unsupported model: $FIRMWARE_MODEL" >&2
+      exit 1
+      ;;
+  esac
+}
+
+resolve_firmware_file() {
   local version="$1"
+  local suffix_re version_re
+  suffix_re="$(product_suffix_regex)"
+  version_re="$(printf '%s' "$version" | sed 's/\./\\./g')"
+
+  echo ""
+  echo "Resolving firmware file for version $version (model=$FIRMWARE_MODEL$([ "$FIRMWARE_FACTORY" -eq 1 ] && echo ', factory'))..."
+
   local matches=()
-  local sha ref tag
+  local hashes=()
+  local hash filename
+  local name_re="-v${version_re}[A-Za-z]*${suffix_re}"
 
-  while read -r sha ref; do
-    [[ -z "${ref:-}" ]] && continue
-    [[ "$ref" == *'^{}' ]] && continue
-    [[ "$ref" == refs/tags/* ]] || continue
+  while read -r hash filename; do
+    [[ -z "${filename:-}" ]] && continue
+    [[ "$hash" =~ ^[0-9a-fA-F]{64}$ ]] || continue
 
-    tag="${ref#refs/tags/}"
-    if [[ "$tag" == "$version" || "$tag" == "v$version" || "$tag" == *"-v$version" ]]; then
-      matches+=("$tag")
+    # Match -vX.Y.Z with optional Coinkite letters (X, Q, QX, ...) then product suffix.
+    if [[ "$filename" =~ $name_re ]]; then
+      matches+=("$filename")
+      hashes+=("$hash")
     fi
-  done < <(git ls-remote -t "https://github.com/${COINKITE_GITHUB_REPO}.git")
+  done < <(awk '$1 ~ /^[0-9a-fA-F]{64}$/ && NF >= 2 { print $1, $2 }' signatures.txt)
 
   if [[ ${#matches[@]} -eq 0 ]]; then
-    echo "Error: Version $version not found."
+    echo "Error: No matching firmware found in signatures.txt for version $version."
     echo ""
     echo "You can find available firmware versions at:"
     echo "  - GitHub releases: https://github.com/Coldcard/firmware/tags"
@@ -175,15 +228,17 @@ resolve_firmware_tag() {
   fi
 
   if [[ ${#matches[@]} -gt 1 ]]; then
-    echo "Error: Multiple tags match version $version:"
-    local match
-    for match in "${matches[@]}"; do
-      echo "  - $match"
+    echo "Error: Multiple firmware files match version $version:"
+    local i
+    for i in "${!matches[@]}"; do
+      echo "  - ${matches[$i]}"
     done
     exit 1
   fi
 
-  printf '%s\n' "${matches[0]}"
+  FIRMWARE_FILE="${matches[0]}"
+  FIRMWARE_HASH="${hashes[0]}"
+  echo "✓ Resolved: $FIRMWARE_FILE"
 }
 
 confirm_download() {
@@ -210,19 +265,7 @@ confirm_download() {
 }
 
 download_firmware() {
-  local _firmware_version="$1"
-  local firmware_platform="mk4-coldcard"
-  local firmware_ext="dfu"
-
-  echo ""
-  echo "Validating firmware version $_firmware_version..."
-
-  local ck_firmware_version
-  ck_firmware_version="$(resolve_firmware_tag "$_firmware_version")"
-
-  echo "✓ Version found on GitHub: $ck_firmware_version"
-
-  local firmware_file="${ck_firmware_version}-${firmware_platform}.${firmware_ext}"
+  local firmware_file="$FIRMWARE_FILE"
   local firmware_url="https://coldcard.com/downloads/${firmware_file}"
 
   # Check for existing .dfu files
@@ -243,7 +286,6 @@ download_firmware() {
     if [[ -f "$firmware_file" ]]; then
       echo "Requested version already exists: $firmware_file"
       echo "Skipping download."
-      FIRMWARE_FILE="$firmware_file"
       return 0
     fi
 
@@ -254,13 +296,25 @@ download_firmware() {
   echo "Downloading firmware..."
 
   if ! curl -fsSLo "$firmware_file" --max-time "$CURL_MAX_TIME_FIRMWARE" "$firmware_url"; then
-    echo "Error: Failed to download firmware."
+    echo "Error: Failed to download firmware from $firmware_url"
     exit 1
   fi
 
   echo "> $firmware_file"
+}
 
-  FIRMWARE_FILE="$firmware_file"
+print_dry_run_plan() {
+  local firmware_url="https://coldcard.com/downloads/${FIRMWARE_FILE}"
+
+  echo ""
+  echo "Dry run — no firmware download will be performed."
+  echo "  Version:  $FIRMWARE_VERSION"
+  echo "  Model:    $FIRMWARE_MODEL$([ "$FIRMWARE_FACTORY" -eq 1 ] && echo ' (factory)')"
+  echo "  File:     $FIRMWARE_FILE"
+  echo "  URL:      $firmware_url"
+  echo "  SHA-256:  $FIRMWARE_HASH"
+  echo ""
+  echo "✓ Dry run complete"
 }
 
 download_signature() {
@@ -349,12 +403,14 @@ verify_firmware_hash() {
   actual_hash="$(file_sha256 "$FIRMWARE_FILE")"
   echo "  Actual:   $actual_hash"
 
-  local expected_hash
-  expected_hash="$(
-    awk -v filename="$FIRMWARE_FILE" '
-      $1 ~ /^[0-9a-fA-F]{64}$/ && $2 == filename { print $1; exit }
-    ' signatures.txt
-  )"
+  local expected_hash="$FIRMWARE_HASH"
+  if [[ -z "$expected_hash" ]]; then
+    expected_hash="$(
+      awk -v filename="$FIRMWARE_FILE" '
+        $1 ~ /^[0-9a-fA-F]{64}$/ && $2 == filename { print $1; exit }
+      ' signatures.txt
+    )"
+  fi
 
   if [[ -z "$expected_hash" ]]; then
     echo "Error: Firmware file not found in signatures.txt"
@@ -378,7 +434,7 @@ main() {
   parse_args "$@"
 
   echo "###########################################"
-  echo "#         ColdCard MK4 Firmware           #"
+  echo "#         ColdCard Firmware CLI           #"
   echo "###########################################"
   echo ""
 
@@ -386,7 +442,14 @@ main() {
   check_ck_public_key
   download_signature
   verify_signatures_file
-  download_firmware "$FIRMWARE_VERSION"
+  resolve_firmware_file "$FIRMWARE_VERSION"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    print_dry_run_plan
+    exit 0
+  fi
+
+  download_firmware
   verify_firmware_hash
 }
 

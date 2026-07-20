@@ -84,6 +84,8 @@ Example:
 
 Use `--yes` (or `-y`) to skip the interactive confirmation when other `.dfu` files are already present. Without a TTY, confirmation prompts are refused unless `--yes` is provided.
 
+Use `--help` (or `-h`) to print usage and exit.
+
 ## Checking Coinkite Key
 
 ```shell

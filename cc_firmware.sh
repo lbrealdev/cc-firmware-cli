@@ -20,7 +20,16 @@ CURL_MAX_TIME_SIGNATURES=60
 HASH_CMD=()
 
 show_usage() {
-  echo "Usage: $SCRIPT_NAME --version <X.Y.Z> [--yes|-y]"
+  cat <<EOF
+Usage: $SCRIPT_NAME --version <X.Y.Z> [--yes|-y]
+
+Download and verify ColdCard MK4 firmware.
+
+Options:
+  --version <X.Y.Z>  Firmware version to download (required)
+  --yes, -y          Skip confirmation when other .dfu files exist
+  --help, -h         Show this help and exit
+EOF
 }
 
 parse_args() {
@@ -32,6 +41,10 @@ parse_args() {
 
   while [[ $# -gt 0 ]]; do
     case $1 in
+      --help|-h)
+        show_usage
+        exit 0
+        ;;
       --version)
         if [[ -n "${2:-}" && "$2" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           FIRMWARE_VERSION="$2"

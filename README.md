@@ -109,6 +109,23 @@ gpg --list-keys --keyid-format=long | grep -B2 -A1 "coinkite"
 - https://x.com/BinaryWatchBot
 - https://binarywatch.org/
 
+## Development
+
+Before opening a PR, run the local lint/smoke checks:
+
+```shell
+mise run lint
+mise run smoke
+```
+
+Or equivalently:
+
+```shell
+bash -n cc_firmware.sh
+shellcheck cc_firmware.sh
+./tests/smoke.sh
+```
+
 ## Contributing
 
 Contributions are welcome, with one important constraint:

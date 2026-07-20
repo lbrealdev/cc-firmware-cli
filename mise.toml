@@ -1,3 +1,11 @@
+[tasks.lint]
+description = 'Syntax-check and ShellCheck the firmware CLI'
+run = 'bash -n cc_firmware.sh && shellcheck cc_firmware.sh'
+
+[tasks.smoke]
+description = 'Run local smoke checks'
+run = './tests/smoke.sh'
+
 [tasks.rm-signature]
 description = 'Remove signature.txt file'
 run = 'find . -type f -name "signatures.txt" -exec rm -rf "{}" \;'

@@ -74,17 +74,29 @@ The script automates both verification steps. It extracts the hash/filename pair
 ## Usage
 
 ```shell
-./cc_firmware.sh --version <X.Y.Z> [--yes|-y]
+./cc_firmware.sh --version <X.Y.Z> [options]
 ```
 
-Example:
+The script downloads and PGP-verifies `signatures.txt`, resolves the matching `.dfu` from that manifest, then downloads and hash-checks the firmware.
+
 ```shell
-./cc_firmware.sh --version 5.4.1
+# MK production build (default model)
+./cc_firmware.sh --version 5.5.1
+
+# Preview resolved file/URL/hash without downloading firmware
+./cc_firmware.sh --version 5.5.1 --dry-run
+
+# Q1 production build
+./cc_firmware.sh --version 1.4.1 --model q1
+
+# Factory build
+./cc_firmware.sh --version 5.5.1 --factory
+
+# Non-interactive confirm when other .dfu files are present
+./cc_firmware.sh --version 5.5.1 --yes
 ```
 
-Use `--yes` (or `-y`) to skip the interactive confirmation when other `.dfu` files are already present. Without a TTY, confirmation prompts are refused unless `--yes` is provided.
-
-Use `--help` (or `-h`) to print usage and exit.
+Options: `--model mk|q1` (default `mk`), `--factory`, `--dry-run`, `--yes`/`-y`, `--help`/`-h`.
 
 ## Checking Coinkite Key
 

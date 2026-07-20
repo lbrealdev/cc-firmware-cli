@@ -74,13 +74,17 @@ The script automates both verification steps. It extracts the hash/filename pair
 ## Usage
 
 ```shell
-./cc_firmware.sh --version <X.Y.Z>
+./cc_firmware.sh --version <X.Y.Z> [--yes|-y]
 ```
 
 Example:
 ```shell
 ./cc_firmware.sh --version 5.4.1
 ```
+
+Use `--yes` (or `-y`) to skip the interactive confirmation when other `.dfu` files are already present. Without a TTY, confirmation prompts are refused unless `--yes` is provided.
+
+Use `--help` (or `-h`) to print usage and exit.
 
 ## Checking Coinkite Key
 

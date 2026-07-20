@@ -1,6 +1,3 @@
-[settings]
-trusted_config_paths = ["."]
-
 [tasks.rm-signature]
 description = 'Remove signature.txt file'
 run = 'find . -type f -name "signatures.txt" -exec rm -rf "{}" \;'

@@ -74,21 +74,29 @@ The script automates both verification steps. It extracts the hash/filename pair
 ## Usage
 
 ```shell
-./cc_firmware.sh --version <X.Y.Z> [--model mk|q1] [--factory] [--dry-run] [--yes|-y]
+./cc_firmware.sh --version <X.Y.Z> [options]
 ```
 
-Example:
+The script downloads and PGP-verifies `signatures.txt`, resolves the matching `.dfu` from that manifest, then downloads and hash-checks the firmware.
+
 ```shell
-./cc_firmware.sh --version 5.4.1
+# MK production build (default model)
+./cc_firmware.sh --version 5.5.1
+
+# Preview resolved file/URL/hash without downloading firmware
+./cc_firmware.sh --version 5.5.1 --dry-run
+
+# Q1 production build
+./cc_firmware.sh --version 1.4.1 --model q1
+
+# Factory build
+./cc_firmware.sh --version 5.5.1 --factory
+
+# Non-interactive confirm when other .dfu files are present
+./cc_firmware.sh --version 5.5.1 --yes
 ```
 
-After verifying `signatures.txt`, the script resolves the exact `.dfu` filename from that manifest (so both `mk4-coldcard` and newer `mk-coldcard` names work).
-
-- `--model mk` (default) or `--model q1` selects the device line
-- `--factory` selects the factory build when present in the manifest
-- `--dry-run` verifies the manifest and prints the planned download without fetching the `.dfu`
-- `--yes` (or `-y`) skips the interactive confirmation when other `.dfu` files are already present. Without a TTY, confirmation prompts are refused unless `--yes` is provided
-- `--help` (or `-h`) prints usage and exits
+Options: `--model mk|q1` (default `mk`), `--factory`, `--dry-run`, `--yes`/`-y`, `--help`/`-h`.
 
 ## Checking Coinkite Key
 

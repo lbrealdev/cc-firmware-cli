@@ -68,10 +68,5 @@ This project is **not affiliated with Coinkite Inc. or ColdCard**. It automates 
 - Downloads: https://coldcard.com/downloads/
 - Firmware repo: https://github.com/Coldcard/firmware
 - PGP key id: `0xA3A31BAD5A2A5B10`
-
-### Related reading
-
-Independent write-ups that discuss firmware verification culture (not affiliated with this project or Coinkite):
-
-- https://binarywatch.org/
-- https://x.com/BinaryWatchBot
+- BinaryWatch (Coinkite checksum checker): https://binarywatch.org/
+- BinaryWatchBot: https://x.com/BinaryWatchBot

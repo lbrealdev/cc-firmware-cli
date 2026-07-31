@@ -165,30 +165,37 @@ Coinkite further notes that carefully crafted TRNG code remained present and was
 | --- | --- |
 | MicroPython Yasmarang fallback introduced upstream | May 2018 ([micropython commit f68e722005](https://github.com/micropython/micropython/commit/f68e722005)) |
 | Entered COLDCARD wallet seed generation | libNgU migration, March 2021 ([Coldcard/firmware `b18723dd…`](https://github.com/Coldcard/firmware/commit/b18723dddb6d751c39978e4364b56b2414f68b47)) |
+| Affected Mk3 firmware range | **4.0.1 through 4.1.9**; **4.2.0** corrects new seed generation (Coinkite) |
 | “Eight-year” figure | Describes age of the **upstream** fallback code, **not** the duration of affected COLDCARD seed generation (Coinkite) |
 
 Relevant MicroPython file: [micropython/ports/stm32/rng.c](https://github.com/micropython/micropython/blob/master/ports/stm32/rng.c#L36).
 
 **Attribution:** Coinkite technical deep dive.
 
-### 2.8 Hotfix mechanics (5.6.0 / 1.5.0Q)
+### 2.8 Hotfix mechanics (all models / tracks)
 
-Coinkite’s emergency hotfix for current products:
+Coinkite’s emergency hotfixes (confirmed for every affected model and release track as of the 2026-07-31 advisory update):
 
-| Release | Models |
+| Release | Models / track |
 | --- | --- |
-| **5.6.0** | Mk4 and Mk5 |
-| **1.5.0Q** | Q1 |
+| **4.2.0+** | Mk3 (Standard) |
+| **5.6.0+** | Mk4 and Mk5 (Standard) |
+| **1.5.0Q+** | Q (Standard) |
+| **6.6.0X+** | Mk4 and Mk5 (Edge) |
+| **6.6.0QX+** | Q (Edge) |
+
+Standard and Edge are separate tracks. Do not assume an older Edge 6.x is fixed merely because its number is higher than the Standard release (Coinkite).
 
 | Hotfix property | Detail (Coinkite) |
 | --- | --- |
-| Features | No new features; generates entropy correctly |
+| Features | Entropy generation corrected; not a feature release |
 | Build exclusion | Explicitly excludes MicroPython’s fallback PRNG object |
 | Build-time check | Build fails unless the board-specific object defines the global `rng_get()` symbol and the upstream fallback object defines no symbols |
+| Existing seeds | Updating does **not** repair seeds generated on affected firmware; those must still be replaced unless the independent dice-entropy exception applies |
 
-Install via official [COLDCARD upgrade docs](https://coldcard.com/docs/upgrade/). Updating firmware does not repair seeds already generated on affected firmware.
+Install via official [COLDCARD upgrade docs](https://coldcard.com/docs/upgrade/).
 
-**Attribution:** Coinkite technical deep dive.
+**Attribution:** Coinkite technical deep dive and Mk3 advisory (2026-07-31 update).
 
 ---
 
@@ -217,7 +224,7 @@ seed = random.bytes(32)
 
 Mk2/Mk3 v4 do **not** execute the later Mk4 reseeding code.
 
-**Attribution:** Block; Coinkite technical deep dive confirms the same migration. Coinkite’s user advisory centers on Mk3 from **4.0.1** onward.
+**Attribution:** Block; Coinkite technical deep dive confirms the same migration. Coinkite’s user advisory centers on Mk3 **4.0.1–4.1.9**; **4.2.0** corrects new seed generation.
 
 ---
 
@@ -504,7 +511,8 @@ B = original_seed XOR A
 | 2026-07-30 | Independent root-cause findings; broader impact research | Block |
 | 2026-07-30 | Coinkite Mk3 advisory published | Coinkite / Block |
 | 2026-07-30 | Block discloses to Coinkite (noting differences) and publishes report | Block |
-| 2026-07-30 | Coinkite technical deep dive published; hotfixes **5.6.0** / **1.5.0Q** | Coinkite |
+| 2026-07-30 | Coinkite technical deep dive published; initial hotfixes for Mk4/Mk5/Q | Coinkite |
+| 2026-07-31 | Fixed firmware confirmed for all tracks: Mk3 **4.2.0**, Standard **5.6.0** / **1.5.0Q**, Edge **6.6.0X** / **6.6.0QX** | Coinkite |
 
 ---
 
@@ -520,7 +528,7 @@ Block’s impact framing, preserved carefully:
 6. No end-to-end brute-force benchmark is claimed in the Block report.
 7. Block states active exploitation is under way; this repository has not independently verified that claim.
 
-For user triage and migration: [00-SITUATION-AND-IMPACT.md](00-SITUATION-AND-IMPACT.md).
+For user triage and migration: [00-SITUATION-AND-IMPACT.md](00-SITUATION-AND-IMPACT.md). Decision tree (interim passphrase vs fixed-firmware exit): [README.md](README.md#migration-decision-tree).
 
 ---
 
@@ -571,6 +579,7 @@ Inline commit/path links elsewhere in this document remain for local context.
 | 1.1 | 2026-07-31 | Incorporate Coinkite technical deep dive; hotfix/review-miss notes; upgrade docs + related refs |
 | 1.2 | 2026-07-31 | Add COLDCARD Mk4 vs Mk3 docs link (hardware/model background) |
 | 1.3 | 2026-07-31 | Dedupe general sources into folder README; keep code-path citations |
+| 1.4 | 2026-07-31 | Hotfix/timeline: Mk3 4.2.0 + Edge 6.6.0X / 6.6.0QX |
 
 **Standards used in this file**
 

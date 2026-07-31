@@ -431,6 +431,8 @@ The same `ngu.random` / `my_random_bytes()` construction feeds multiple features
 
 **Attribution:** Block.
 
+**Synthesis (this investigation):** For user-facing guidance on these same features, see [00-SITUATION-AND-IMPACT.md](00-SITUATION-AND-IMPACT.md) §10 ("Other features that may inherit weak RNG").
+
 ### 9.1 Paper wallets (extra detail)
 
 ```text

@@ -249,6 +249,8 @@ Verifying a fixed firmware image with this tool does **not** by itself migrate f
 | Final Mk3 firmware release | Under consideration only if safe (Coinkite Mk3 advisory) |
 | Independent reproduction by this repository | **Not performed** — this package synthesizes public sources |
 
+**Synthesis (this investigation):** An LLFOURN attack-cost model analysis is referenced in the technical companion ([01-TECHNICAL-ANALYSIS.md](01-TECHNICAL-ANALYSIS.md) §15).
+
 ---
 
 ## 13. Primary sources

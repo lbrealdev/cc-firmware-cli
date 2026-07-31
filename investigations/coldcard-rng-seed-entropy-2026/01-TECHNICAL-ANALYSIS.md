@@ -381,6 +381,8 @@ Block emphasizes the ~73-bit figure is **not** 73-bit cryptographic security: ti
 
 † Conditional source path; ordinary production SE failure appears to halt rather than continue (Block).
 
+Block’s ≈ \(2^{256}\) for pre-regression devices is the raw 32-byte seed space; Coinkite’s “expected **128**” elsewhere is the intended security target, not a contradiction of that raw space.
+
 **Attribution:** Block.
 
 ### 7.4 Coinkite vendor estimates (current attack assumptions)

@@ -555,6 +555,7 @@ Upstream tree: https://github.com/Coldcard/firmware
 | Block — Predictable RNG Fallback and 32-Bit Reseed in COLDCARD Firmware | https://engineering.block.xyz/blog/predictable-rng-fallback-and-32-bit-reseed-in-coldcard-firmware |
 | LLFOURN — Attack-cost model for affected COLDCARD generations (cited by Coinkite) | https://x.com/LLFOURN/status/2082990000896147942 |
 | COLDCARD firmware upgrade docs | https://coldcard.com/docs/upgrade/ |
+| COLDCARD Mk4 vs Mk3 docs | https://coldcard.com/docs/coldcard-mk4/ |
 | COLDCARD firmware repository | https://github.com/Coldcard/firmware |
 | COLDCARD downloads | https://coldcard.com/downloads/ |
 | COLDCARD dice-roll math docs | https://coldcard.com/docs/verifying-dice-roll-math/ |
@@ -569,6 +570,7 @@ Upstream tree: https://github.com/Coldcard/firmware
 | --- | --- | --- |
 | 1.0 | 2026-07-31 | Initial technical synthesis in this repository |
 | 1.1 | 2026-07-31 | Incorporate Coinkite technical deep dive; hotfix/review-miss notes; upgrade docs + related refs |
+| 1.2 | 2026-07-31 | Add COLDCARD Mk4 vs Mk3 docs link (hardware/model background) |
 
 **Standards used in this file**
 

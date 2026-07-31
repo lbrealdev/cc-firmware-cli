@@ -261,6 +261,7 @@ Verifying a fixed firmware image with this tool does **not** by itself migrate f
 | Coinkite — Technical Deep Dive into the Entropy Issue | https://blog.coinkite.com/entropy-technical-backgrounder/ | Vendor root-cause confirmation, ~40/~72-bit estimates, hotfix notes |
 | Block Engineering — Predictable RNG Fallback and 32-Bit Reseed | https://engineering.block.xyz/blog/predictable-rng-fallback-and-32-bit-reseed-in-coldcard-firmware | Independent technical root cause, search spaces, feature blast radius |
 | COLDCARD firmware upgrade docs | https://coldcard.com/docs/upgrade/ | Official install/upgrade procedure before generating a new seed |
+| COLDCARD Mk4 vs Mk3 docs | https://coldcard.com/docs/coldcard-mk4/ | Hardware/model background (dual secure elements, Mk4 capabilities) |
 | COLDCARD firmware downloads | https://coldcard.com/downloads/ | Firmware versions (incl. 5.6.0 / 1.5.0Q hotfixes) |
 | COLDCARD BIP-39 passphrase docs | https://coldcard.com/docs/passphrase/ | Interim passphrase procedure |
 | COLDCARD dice-roll method | https://coldcard.com/docs/verifying-dice-roll-math/ | Dice-only verification reference |
@@ -274,6 +275,7 @@ Verifying a fixed firmware image with this tool does **not** by itself migrate f
 | --- | --- | --- |
 | 1.0 | 2026-07-31 | Initial investigation package in this repository |
 | 1.1 | 2026-07-31 | Incorporate Coinkite technical deep dive; add upgrade docs link; refresh status/estimates |
+| 1.2 | 2026-07-31 | Add COLDCARD Mk4 vs Mk3 docs link (hardware/model background) |
 
 Attribution legend used throughout:
 

@@ -548,19 +548,18 @@ Upstream tree: https://github.com/Coldcard/firmware
 
 ## 15. References
 
+Advisory, blog, and general COLDCARD documentation URLs live in the folder index: **[README.md — Canonical sources](README.md#canonical-sources)**.
+
+Code-path citations retained here (technical, not a second reading list):
+
 | Reference | URL |
 | --- | --- |
-| Coinkite — Technical Deep Dive into the Entropy Issue | https://blog.coinkite.com/entropy-technical-backgrounder/ |
-| Coinkite — Mk3 Security Advisory | https://blog.coinkite.com/coldcard-mk3-seed-generation-warning/ |
-| Block — Predictable RNG Fallback and 32-Bit Reseed in COLDCARD Firmware | https://engineering.block.xyz/blog/predictable-rng-fallback-and-32-bit-reseed-in-coldcard-firmware |
-| LLFOURN — Attack-cost model for affected COLDCARD generations (cited by Coinkite) | https://x.com/LLFOURN/status/2082990000896147942 |
-| COLDCARD firmware upgrade docs | https://coldcard.com/docs/upgrade/ |
-| COLDCARD Mk4 vs Mk3 docs | https://coldcard.com/docs/coldcard-mk4/ |
-| COLDCARD firmware repository | https://github.com/Coldcard/firmware |
-| COLDCARD downloads | https://coldcard.com/downloads/ |
-| COLDCARD dice-roll math docs | https://coldcard.com/docs/verifying-dice-roll-math/ |
 | MicroPython STM32 `rng.c` | https://github.com/micropython/micropython/blob/master/ports/stm32/rng.c#L36 |
 | libngu `random.c` preprocessor guard | https://github.com/switck/libngu/blob/cf1988aa54969a7d2dcef261ee664a41a7013262/ngu/random.c#L22-L31 |
+| COLDCARD firmware commit `b18723dd…` (wallet gen → libngu) | https://github.com/Coldcard/firmware/commit/b18723dddb6d751c39978e4364b56b2414f68b47 |
+| COLDCARD firmware repository | https://github.com/Coldcard/firmware |
+
+Inline commit/path links elsewhere in this document remain for local context.
 
 ---
 
@@ -571,6 +570,7 @@ Upstream tree: https://github.com/Coldcard/firmware
 | 1.0 | 2026-07-31 | Initial technical synthesis in this repository |
 | 1.1 | 2026-07-31 | Incorporate Coinkite technical deep dive; hotfix/review-miss notes; upgrade docs + related refs |
 | 1.2 | 2026-07-31 | Add COLDCARD Mk4 vs Mk3 docs link (hardware/model background) |
+| 1.3 | 2026-07-31 | Dedupe general sources into folder README; keep code-path citations |
 
 **Standards used in this file**
 

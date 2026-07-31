@@ -75,4 +75,4 @@ This project is **not affiliated with Coinkite Inc. or ColdCard**. It automates 
 
 Third-party incident notes (not part of this tool’s verification docs):
 
-- [COLDCARD RNG / seed entropy (2026)](investigations/coldcard-rng-seed-entropy-2026/00-SITUATION-AND-IMPACT.md) — situation & impact; [technical analysis](investigations/coldcard-rng-seed-entropy-2026/01-TECHNICAL-ANALYSIS.md)
+- [COLDCARD RNG / seed entropy (2026)](investigations/coldcard-rng-seed-entropy-2026/README.md) — index, migration decision tree, and canonical sources ([situation & impact](investigations/coldcard-rng-seed-entropy-2026/00-SITUATION-AND-IMPACT.md), [technical analysis](investigations/coldcard-rng-seed-entropy-2026/01-TECHNICAL-ANALYSIS.md))

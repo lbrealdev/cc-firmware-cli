@@ -6,7 +6,7 @@
 | Document | Situation and impact (File 1 of 2) |
 | Companion | [01-TECHNICAL-ANALYSIS.md](01-TECHNICAL-ANALYSIS.md) |
 | Incident window (public disclosure) | 2026-07-30 |
-| Document status | Preliminary synthesis of public sources |
+| Document status | Synthesis of public sources (includes Coinkite technical deep dive) |
 | Scope of this repo | Documentation only — this project does not generate seeds or talk to devices |
 
 ---
@@ -20,12 +20,14 @@
 | Claim | Attribution | Confidence for this investigation |
 | --- | --- | --- |
 | Mk3 seeds generated on firmware 4.0.1+ may put funds at risk | Coinkite | High (vendor advisory) |
-| Mk4 / Mk5 before 5.6.0 and Q before 1.5.0Q affected (~72 bits vs expected 128) | Coinkite | High (vendor advisory; quantitative framing preliminary) |
-| Root cause is libngu binding to MicroPython Yasmarang fallback; Mk4+ reseed limited to 32 bits | Block | High for code-path analysis; Block states full empirical exploit testing was not completed |
+| Mk3 affected effective search space ≈ **40 bits** under current attack assumptions | Coinkite (technical deep dive) | High as vendor estimate; Coinkite marks it preliminary and subject to change |
+| Mk4 / Mk5 before 5.6.0 and Q before 1.5.0Q affected (~**72 bits** vs expected 128) | Coinkite | High (vendor advisory + technical deep dive) |
+| Root cause is libngu binding to MicroPython Yasmarang fallback; Mk4+ SE mixing / reseed did not restore 128-bit security | Coinkite + Block | High for code-path analysis; Block states full empirical exploit testing was not completed |
 | Active exploitation is under way | Block | Stated by Block; not independently verified by this repository |
+| Emergency hotfixes 5.6.0 (Mk4/Mk5) and 1.5.0Q (Q) generate entropy correctly | Coinkite | High (vendor hotfix release) |
 | TAPSIGNER, OPENDIME, SATSCARD unaffected | Coinkite | High (different codebases) |
 
-> **Important:** Coinkite’s formal technical review was still pending at the time of the cited posts. Block’s analysis is explicitly preliminary. Prefer Coinkite’s definitive report when published if it supersedes anything below.
+> **Important:** Coinkite published a [technical deep dive](https://blog.coinkite.com/entropy-technical-backgrounder/) on 2026-07-30 confirming the root cause and giving ~40-bit (Mk3) / ~72-bit (Mk4/Q/Mk5) search-space estimates under current assumptions. Block’s analysis remains explicitly preliminary on full empirical exploit testing. Where sources differ in framing, both are retained and attributed.
 
 ---
 
@@ -53,10 +55,10 @@ Exposure depends on the **firmware version used when the secret was generated**,
 | Mk2 | Through v3.2.2 | Uses direct STM32 hardware RNG (Block) |
 | Mk2 | v4.0.0–v4.1.9 | Confirmed vulnerable path; no secure reseed (Block) |
 | Mk3 | Through v3.2.2 | Uses direct STM32 hardware RNG (Block) |
-| Mk3 | v4.0.0–v4.1.9 (Coinkite highlights 4.0.1+) | Confirmed vulnerable path; no secure reseed; Coinkite warns funds may be at risk |
-| Mk4 | Production v5.0.0 onward, before **5.6.0** | Fallback remains; secure reseed limited to 32 bits (Block); Coinkite: ~72 bits vs expected 128 |
-| Q | All production firmware before **1.5.0Q** | Same Mk4-class construction (Block); Coinkite fixed target: 1.5.0Q+ |
-| Mk5 | All production firmware before **5.6.0** | Same current Mk construction (Block); Coinkite fixed target: 5.6.0+ |
+| Mk3 | v4.0.0–v4.1.9 (Coinkite highlights 4.0.1+) | Confirmed vulnerable path; no SE reseed; Coinkite warns funds may be at risk; vendor estimate ≈ **40 bits** (preliminary) |
+| Mk4 | Production v5.0.0 onward, before **5.6.0** | Fallback remains; SE mixing/reseed limited (Block: 32-bit reseed); Coinkite: ≈ **72 bits** vs expected 128 |
+| Q | All production firmware before **1.5.0Q** | Same Mk4-class construction (Block); Coinkite: ≈ **72 bits**; fixed target: 1.5.0Q+ |
+| Mk5 | All production firmware before **5.6.0** | Same current Mk construction (Block); Coinkite: ≈ **72 bits**; fixed target: 5.6.0+ |
 
 ### 3.2 Products Coinkite states are not affected
 
@@ -81,8 +83,8 @@ Exposure depends on the **firmware version used when the secret was generated**,
 
 | Path | Entropy picture (public analysis) | Fund-theft implication |
 | --- | --- | --- |
-| Mk2 / Mk3 on v4.x (no secure reseed) | For known UID, timer state, and RNG call history, wallet generation can be **deterministic** (Block). Broad unknown-timer ceilings still far below 128-bit security. | Highest severity among COLDCARD seed paths described in the public reports |
-| Mk4 / Q / Mk5 with successful 32-bit reseed | At most \(2^{32}\) securely distinguished RNG streams once fallback state and call history are fixed (Block). Coinkite describes ~**72 bits** instead of expected **128**. | Serious; smaller than Mk3 worst case in Coinkite’s framing, still unacceptable for long-term custody |
+| Mk2 / Mk3 on v4.x (no secure reseed) | For known UID, timer state, and RNG call history, wallet generation can be **deterministic** (Block). Coinkite estimates ≈ **40 bits** effective search space under current attack assumptions (preliminary). | Highest severity among COLDCARD seed paths described in the public reports |
+| Mk4 / Q / Mk5 with SE mixing / 32-bit reseed | At most \(2^{32}\) securely distinguished RNG streams once fallback state and call history are fixed (Block). Coinkite estimates ≈ **72 bits** instead of expected **128**. | Serious; better than Mk3 in Coinkite’s framing, still far below the intended security target |
 | Seed exported from a vulnerable COLDCARD to another wallet | Same insecure seed remains affected (Block) | Moving the seed does not heal it |
 | Multisig composed only of vulnerable keys | Quorum of vulnerable keys does not neutralize the issue (Block) | Need a quorum of keys that were generated safely |
 
@@ -131,13 +133,16 @@ Rushing a migration can create a more immediate loss than the entropy defect. Co
 
 ### 7.1 Preferred path (Mk4 / Mk5 / Q available)
 
-1. Install fixed firmware: Mk4/Mk5 **≥ 5.6.0**, or Q **≥ 1.5.0Q**. Confirm the version on-device.
-2. Generate a **new** seed on the updated COLDCARD.
-3. Record and verify the backup (seed words / backup medium) **before** depositing meaningful funds.
-4. Verify a receive address on the COLDCARD screen (not only in software).
-5. Send a **small test transaction**; confirm receipt in the new wallet.
-6. Move the remaining funds.
-7. Keep the old backup until the entire migration is confirmed.
+1. [Upgrade the firmware](https://coldcard.com/docs/upgrade/) before generating any new seed: Mk4/Mk5 **≥ 5.6.0**, or Q **≥ 1.5.0Q**. Confirm the version on-device.
+2. Generate a **completely new** seed on the updated COLDCARD.
+3. On fixed firmware, the device-generated seed is sufficient to address this issue; dice rolls are optional. A BIP-39 passphrase remains a separate wallet-security choice (Coinkite technical deep dive).
+4. Back up the new seed and any passphrase carefully. Store the passphrase separately from the seed words.
+5. Power-cycle the COLDCARD and verify the wallet fingerprint (XFP) and a receive address on the device screen.
+6. Send a **small test transaction**; confirm receipt in the new wallet.
+7. Move the remaining funds.
+8. Keep the old backup until the entire migration is confirmed.
+
+Updating firmware does **not** repair a seed generated by affected firmware. A new seed must be generated and funds migrated (Coinkite).
 
 ### 7.2 Interim measure if Mk3 is the only option (BIP-39 passphrase)
 
@@ -196,8 +201,9 @@ Applies to the **final** seed words shown after dice were added.
 | 2021-03-17 | Firmware **v4.0.0** ships with vulnerable generation path | Block |
 | 2022-03-11 – 2022-03-14 | 32-bit reseed API and Mk4 production v5.0.0 include reseed | Block |
 | 2026-07-30 | Reports of COLDCARD users losing funds; Block and others investigate | Block |
-| 2026-07-30 | Coinkite publishes preliminary Mk3 security advisory | Coinkite |
+| 2026-07-30 | Coinkite publishes Mk3 security advisory | Coinkite |
 | 2026-07-30 | Block discloses findings to Coinkite and publishes technical report | Block |
+| 2026-07-30 | Coinkite publishes technical deep dive; emergency hotfixes **5.6.0** / **1.5.0Q** | Coinkite |
 
 Full technical timeline with commit references: [01-TECHNICAL-ANALYSIS.md](01-TECHNICAL-ANALYSIS.md#12-technical-timeline).
 
@@ -227,7 +233,7 @@ Callers that use `ckcc.rng_bytes` instead reach the separate STM32 hardware-RNG 
 | Why document here | Users of this tool care about COLDCARD firmware provenance; the July 2026 advisory is operationally relevant when choosing firmware versions for **new** wallets |
 | Not in `docs/` | Keeps product threat-model docs (`docs/SECURITY.md`) separate from third-party incident investigation |
 
-Verifying a fixed firmware image with this tool does **not** by itself migrate funds. After download/verify, install per Coinkite instructions, confirm version on-device, then generate a **new** seed.
+Verifying a fixed firmware image with this tool does **not** by itself migrate funds. After download/verify, install per Coinkite’s [upgrade instructions](https://coldcard.com/docs/upgrade/), confirm version on-device, then generate a **new** seed.
 
 ---
 
@@ -235,11 +241,12 @@ Verifying a fixed firmware image with this tool does **not** by itself migrate f
 
 | Item | Status |
 | --- | --- |
-| Coinkite formal technical review | Pending at time of cited advisory |
+| Coinkite formal technical deep dive | **Published** (2026-07-30): https://blog.coinkite.com/entropy-technical-backgrounder/ |
+| Coinkite Mk3 ≈ 40-bit search-space estimate | Preliminary; Coinkite says it may change as analysis continues |
 | Block full empirical exploit testing | Not completed (per Block) |
 | Exact Mk3 RTC/SysTick distributions in the field | Pending hardware validation (Block) |
 | Whether ordinary SE failures can skip reseed in production | Conditional / not established (Block) |
-| Final Mk3 firmware release | Under consideration only if safe (Coinkite) |
+| Final Mk3 firmware release | Under consideration only if safe (Coinkite Mk3 advisory) |
 | Independent reproduction by this repository | **Not performed** — this package synthesizes public sources |
 
 ---
@@ -249,11 +256,13 @@ Verifying a fixed firmware image with this tool does **not** by itself migrate f
 | Source | URL | Role |
 | --- | --- | --- |
 | Coinkite — Mk3 Security Advisory | https://blog.coinkite.com/coldcard-mk3-seed-generation-warning/ | Vendor user guidance, affected versions, migration, dice/passphrase |
-| Block Engineering — Predictable RNG Fallback and 32-Bit Reseed | https://engineering.block.xyz/blog/predictable-rng-fallback-and-32-bit-reseed-in-coldcard-firmware | Technical root cause, search spaces, feature blast radius |
-| COLDCARD firmware downloads | https://coldcard.com/downloads/ | Firmware versions |
+| Coinkite — Technical Deep Dive into the Entropy Issue | https://blog.coinkite.com/entropy-technical-backgrounder/ | Vendor root-cause confirmation, ~40/~72-bit estimates, hotfix notes |
+| Block Engineering — Predictable RNG Fallback and 32-Bit Reseed | https://engineering.block.xyz/blog/predictable-rng-fallback-and-32-bit-reseed-in-coldcard-firmware | Independent technical root cause, search spaces, feature blast radius |
+| COLDCARD firmware upgrade docs | https://coldcard.com/docs/upgrade/ | Official install/upgrade procedure before generating a new seed |
+| COLDCARD firmware downloads | https://coldcard.com/downloads/ | Firmware versions (incl. 5.6.0 / 1.5.0Q hotfixes) |
 | COLDCARD BIP-39 passphrase docs | https://coldcard.com/docs/passphrase/ | Interim passphrase procedure |
 | COLDCARD dice-roll method | https://coldcard.com/docs/verifying-dice-roll-math/ | Dice-only verification reference |
-| COLDCARD firmware source | https://github.com/Coldcard/firmware | Code paths cited by Block |
+| COLDCARD firmware source | https://github.com/Coldcard/firmware | Code paths cited by Block and Coinkite |
 
 ---
 
@@ -262,9 +271,10 @@ Verifying a fixed firmware image with this tool does **not** by itself migrate f
 | Version | Date | Notes |
 | --- | --- | --- |
 | 1.0 | 2026-07-31 | Initial investigation package in this repository |
+| 1.1 | 2026-07-31 | Incorporate Coinkite technical deep dive; add upgrade docs link; refresh status/estimates |
 
 Attribution legend used throughout:
 
-- **Coinkite** — claim from Coinkite’s advisory
+- **Coinkite** — claim from Coinkite’s Mk3 advisory and/or technical deep dive
 - **Block** — claim from Block’s engineering post
 - **Synthesis** — organizational framing in this investigation (no new exploit claims)

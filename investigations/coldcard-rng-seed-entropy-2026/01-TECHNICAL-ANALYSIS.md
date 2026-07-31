@@ -5,8 +5,9 @@
 | Investigation id | `coldcard-rng-seed-entropy-2026` |
 | Document | Technical analysis (File 2 of 2) |
 | Companion | [00-SITUATION-AND-IMPACT.md](00-SITUATION-AND-IMPACT.md) |
-| Primary technical source | Block Bitcoin Engineering and Security (2026-07-30), with anonymous researchers |
-| Vendor source | Coinkite Mk3 Security Advisory (2026-07-30) |
+| Independent technical source | Block Bitcoin Engineering and Security (2026-07-30), with anonymous researchers |
+| Vendor technical source | Coinkite — [Technical Deep Dive into the Entropy Issue](https://blog.coinkite.com/entropy-technical-backgrounder/) (2026-07-30) |
+| Vendor user advisory | Coinkite — [Mk3 Security Advisory](https://blog.coinkite.com/coldcard-mk3-seed-generation-warning/) (2026-07-30) |
 | Empirical exploit validation by this repo | None — synthesis of public reports only |
 
 This document reconstructs the failure mode for in-repo visibility. It is **not** an exploit guide. No proof-of-concept, brute-force tooling, or attack recipes are included.
@@ -28,6 +29,8 @@ With the macro at zero, MicroPython compiles the **Yasmarang software fallback**
 | Mk4 / Q / Mk5 production | Same fallback binding; boot calls `reseed()` with only **four** digest bytes → ≤ \(2^{32}\) securely distinguished streams for fixed fallback state and call history |
 
 Wallet code may hash the 32-byte RNG output (`sha256d`). Hashing cannot enlarge the set of possible seeds.
+
+Coinkite’s technical deep dive confirms the same integration failure and estimates effective search space at about **40 bits** (Mk3) and about **72 bits** (Mk4 / Q / Mk5) under current attack assumptions. The Mk3 figure is preliminary and may change.
 
 ---
 
@@ -136,7 +139,56 @@ chip ^= my_yasmarang(); // libngu Yasmarang
 | Both streams reproducible | Output reproducible |
 | Health check rejecting adjacent repeated `rng_get()` values | Deterministic PRNG normally passes |
 
-**Attribution:** Block.
+**Attribution:** Block; confirmed by Coinkite technical deep dive.
+
+### 2.5 Vendor confirmation of migration motive
+
+Coinkite states that in 2021 COLDCARD moved elliptic-curve operations to Bitcoin Core’s `libsecp256k1`, which required adding libNgU (embedded MicroPython bindings for `libsecp256k1` and related primitives). The cryptographic library choice was sound; the **integration** was not. During that migration, wallet seed generation moved from `ckcc.rng_bytes()` to `ngu.random.bytes()`, which resolved `rng_get()` to MicroPython’s software fallback.
+
+Coinkite further notes that carefully crafted TRNG code remained present and was used for less important paths, while the bulk of randomness for seed generation came from a PRNG that originated in the MicroPython submodule.
+
+**Attribution:** Coinkite technical deep dive.
+
+### 2.6 Why existing review did not catch it
+
+| Factor | Detail (Coinkite) |
+| --- | --- |
+| Same function signature | Both RNG implementations exported compatible `rng_get()`-style interfaces |
+| Binary presence ≠ call path | Review confirmed intended TRNG code was in the firmware binary but did not verify end-to-end symbol resolution / reachability from wallet seed generation across submodules |
+| Wrong preprocessor guard | libngu used `#ifndef MICROPY_HW_ENABLE_RNG` (see [random.c:22-31](https://github.com/switck/libngu/blob/cf1988aa54969a7d2dcef261ee664a41a7013262/ngu/random.c#L22-L31)); macro defined as zero still satisfied `#ifndef` |
+
+**Attribution:** Coinkite technical deep dive.
+
+### 2.7 Upstream fallback age vs COLDCARD exposure
+
+| Fact | Detail |
+| --- | --- |
+| MicroPython Yasmarang fallback introduced upstream | May 2018 ([micropython commit f68e722005](https://github.com/micropython/micropython/commit/f68e722005)) |
+| Entered COLDCARD wallet seed generation | libNgU migration, March 2021 ([Coldcard/firmware `b18723dd…`](https://github.com/Coldcard/firmware/commit/b18723dddb6d751c39978e4364b56b2414f68b47)) |
+| “Eight-year” figure | Describes age of the **upstream** fallback code, **not** the duration of affected COLDCARD seed generation (Coinkite) |
+
+Relevant MicroPython file: [micropython/ports/stm32/rng.c](https://github.com/micropython/micropython/blob/master/ports/stm32/rng.c#L36).
+
+**Attribution:** Coinkite technical deep dive.
+
+### 2.8 Hotfix mechanics (5.6.0 / 1.5.0Q)
+
+Coinkite’s emergency hotfix for current products:
+
+| Release | Models |
+| --- | --- |
+| **5.6.0** | Mk4 and Mk5 |
+| **1.5.0Q** | Q1 |
+
+| Hotfix property | Detail (Coinkite) |
+| --- | --- |
+| Features | No new features; generates entropy correctly |
+| Build exclusion | Explicitly excludes MicroPython’s fallback PRNG object |
+| Build-time check | Build fails unless the board-specific object defines the global `rng_get()` symbol and the upstream fallback object defines no symbols |
+
+Install via official [COLDCARD upgrade docs](https://coldcard.com/docs/upgrade/). Updating firmware does not repair seeds already generated on affected firmware.
+
+**Attribution:** Coinkite technical deep dive.
 
 ---
 
@@ -155,7 +207,7 @@ This reached `ckcc.rng_bytes` and the board-local STM32 hardware RNG.
 
 ### 3.2 After (vulnerable path)
 
-Commit `b18723dd` (2021-03-01, per Block) changed generation to:
+Commit [`b18723dddb6d751c39978e4364b56b2414f68b47`](https://github.com/Coldcard/firmware/commit/b18723dddb6d751c39978e4364b56b2414f68b47) (2021-03-01) changed generation to:
 
 ```python
 seed = random.bytes(32)
@@ -165,7 +217,7 @@ seed = random.bytes(32)
 
 Mk2/Mk3 v4 do **not** execute the later Mk4 reseeding code.
 
-**Attribution:** Block. Coinkite’s advisory centers on Mk3 from **4.0.1** onward for user warnings.
+**Attribution:** Block; Coinkite technical deep dive confirms the same migration. Coinkite’s user advisory centers on Mk3 from **4.0.1** onward.
 
 ---
 
@@ -331,6 +383,15 @@ Block emphasizes the ~73-bit figure is **not** 73-bit cryptographic security: ti
 
 **Attribution:** Block.
 
+### 7.4 Coinkite vendor estimates (current attack assumptions)
+
+| Device class | Coinkite estimate | Notes |
+| --- | --- | --- |
+| Mk3 (affected) | ≈ **40 bits** effective search space | Preliminary; may change as analysis continues |
+| Mk4 / Q / Mk5 (affected) | ≈ **72 bits** effective search space | SE1/SE2 entropy mixed in as backup-to-backup; did not restore intended 128-bit target |
+
+**Attribution:** Coinkite technical deep dive. Compare with Block’s ceilings in §7.1–7.3 and the mapping in §11.
+
 ---
 
 ## 8. Conditional reseed failure
@@ -411,16 +472,17 @@ B = original_seed XOR A
 
 ---
 
-## 11. Mapping Coinkite “~72 bits” to Block’s ceilings
+## 11. Mapping Coinkite estimates to Block’s ceilings
 
 | Statement | Source | How to read it |
 | --- | --- | --- |
-| Mk4 / Q / Mk5 seeds before fixed firmware have about **72 bits** of entropy rather than expected **128** | Coinkite | Vendor user-facing severity for current devices |
+| Mk3 affected ≈ **40 bits** effective search space under current attack assumptions | Coinkite technical deep dive | Vendor estimate; preliminary / may change |
+| Mk4 / Q / Mk5 affected ≈ **72 bits** rather than expected **128** | Coinkite (advisory + deep dive) | Vendor estimate after SE1/SE2 mixing; still below target |
 | Successful reseed ⇒ ≤ \(2^{32}\) securely distinguished streams for fixed fallback state/history | Block | Hard ceiling on **secure-element-derived** distinction after state is fixed |
-| Loose known-UID raw ceiling including timers ≈ \(2^{73.27}\) | Block | Upper bound under independence assumptions Block rejects as cryptographic security |
-| Mk2/Mk3 v4 can be deterministic given UID/timers/history | Block | Aligns with Coinkite’s stronger Mk3 “funds may be at risk” warning |
+| Loose known-UID raw ceiling including timers ≈ \(2^{73.27}\) | Block | Upper bound under independence assumptions Block rejects as cryptographic security; near Coinkite’s ~72-bit framing |
+| Mk2/Mk3 v4 broad hidden-timer ceiling \(< 2^{40.7}\); can be deterministic given UID/timers/history | Block | Aligns with Coinkite’s ~40-bit Mk3 estimate and “funds may be at risk” warning |
 
-**Synthesis (this investigation):** The two publications describe the same defect class. Coinkite emphasizes operational risk and migration; Block publishes the integration bug and quantitative search-space analysis. Exact field exploit cost depends on UID knowledge, boot timing, prior RNG calls, and derivation cost — Block claims no end-to-end brute-force benchmark.
+**Synthesis (this investigation):** Coinkite’s technical deep dive and Block’s report describe the same defect class. Coinkite now publishes vendor root-cause confirmation plus ~40/~72-bit estimates; Block remains the most detailed independent search-space and feature-blast-radius analysis. Exact field exploit cost depends on UID knowledge, boot timing, prior RNG calls, and derivation cost — Block claims no end-to-end brute-force benchmark.
 
 ---
 
@@ -428,15 +490,17 @@ B = original_seed XOR A
 
 | Date | Event | Source |
 | --- | --- | --- |
+| 2018-05 | MicroPython STM32 Yasmarang fallback introduced upstream | Coinkite |
 | 2021-01-28 | Vulnerable libngu STM32 guard pattern exists | Block |
-| 2021-03-01 | COLDCARD migrates wallet generation to libngu (`b18723dd`) | Block |
+| 2021-03-01 | COLDCARD migrates wallet generation to libngu ([`b18723dd…`](https://github.com/Coldcard/firmware/commit/b18723dddb6d751c39978e4364b56b2414f68b47)) | Block / Coinkite |
 | 2021-03-17 | Firmware **v4.0.0** includes vulnerable path | Block |
 | 2022-03-11 | 32-bit reseed API and Mk4 boot reseeding added (`01cb43f7`) | Block |
 | 2022-03-14 | First production Mk4 **v5.0.0** includes reseed | Block |
 | 2026-07-30 | Fund-loss reports noticed; investigation begins | Block |
 | 2026-07-30 | Independent root-cause findings; broader impact research | Block |
-| 2026-07-30 | Coinkite preliminary Mk3 advisory published | Coinkite / Block |
+| 2026-07-30 | Coinkite Mk3 advisory published | Coinkite / Block |
 | 2026-07-30 | Block discloses to Coinkite (noting differences) and publishes report | Block |
+| 2026-07-30 | Coinkite technical deep dive published; hotfixes **5.6.0** / **1.5.0Q** | Coinkite |
 
 ---
 
@@ -456,18 +520,18 @@ For user triage and migration: [00-SITUATION-AND-IMPACT.md](00-SITUATION-AND-IMP
 
 ---
 
-## 14. Code / path index (as cited by Block)
+## 14. Code / path index (as cited by Block and Coinkite)
 
 | Path / symbol | Relevance |
 | --- | --- |
 | `stm32/COLDCARD/mpconfigboard.h` | `MICROPY_HW_ENABLE_RNG (0)` |
 | `stm32/COLDCARD_MK4/mpconfigboard.h` | Same |
 | `stm32/COLDCARD_Q1/mpconfigboard.h` | Same |
-| libngu `#ifndef MICROPY_HW_ENABLE_RNG` | Incorrect enable check |
-| MicroPython `rng_get()` Yasmarang branch | Software fallback |
+| [libngu `ngu/random.c`](https://github.com/switck/libngu/blob/cf1988aa54969a7d2dcef261ee664a41a7013262/ngu/random.c#L22-L31) `#ifndef MICROPY_HW_ENABLE_RNG` | Incorrect enable check |
+| [MicroPython `ports/stm32/rng.c`](https://github.com/micropython/micropython/blob/master/ports/stm32/rng.c#L36) | HW RNG vs Yasmarang software fallback |
 | `ckcc.rng_bytes` / board `random_buffer()` | Intended HW RNG path |
 | `shared/random.py` → `ngu.random` | Python mapping after regression |
-| Commit `b18723dd` | Wallet generation switch |
+| Commit [`b18723dd…`](https://github.com/Coldcard/firmware/commit/b18723dddb6d751c39978e4364b56b2414f68b47) | Wallet generation switch (libNgU migration) |
 | Commit `01cb43f7` | Mk4 SE reseed |
 | `random_reseed` setting `yasmarang_pad` only | 32-bit reseed limitation |
 | `shared/paper.py` | Paper wallet key generation |
@@ -482,11 +546,16 @@ Upstream tree: https://github.com/Coldcard/firmware
 
 | Reference | URL |
 | --- | --- |
-| Block — Predictable RNG Fallback and 32-Bit Reseed in COLDCARD Firmware | https://engineering.block.xyz/blog/predictable-rng-fallback-and-32-bit-reseed-in-coldcard-firmware |
+| Coinkite — Technical Deep Dive into the Entropy Issue | https://blog.coinkite.com/entropy-technical-backgrounder/ |
 | Coinkite — Mk3 Security Advisory | https://blog.coinkite.com/coldcard-mk3-seed-generation-warning/ |
+| Block — Predictable RNG Fallback and 32-Bit Reseed in COLDCARD Firmware | https://engineering.block.xyz/blog/predictable-rng-fallback-and-32-bit-reseed-in-coldcard-firmware |
+| LLFOURN — Attack-cost model for affected COLDCARD generations (cited by Coinkite) | https://x.com/LLFOURN/status/2082990000896147942 |
+| COLDCARD firmware upgrade docs | https://coldcard.com/docs/upgrade/ |
 | COLDCARD firmware repository | https://github.com/Coldcard/firmware |
 | COLDCARD downloads | https://coldcard.com/downloads/ |
 | COLDCARD dice-roll math docs | https://coldcard.com/docs/verifying-dice-roll-math/ |
+| MicroPython STM32 `rng.c` | https://github.com/micropython/micropython/blob/master/ports/stm32/rng.c#L36 |
+| libngu `random.c` preprocessor guard | https://github.com/switck/libngu/blob/cf1988aa54969a7d2dcef261ee664a41a7013262/ngu/random.c#L22-L31 |
 
 ---
 
@@ -495,6 +564,7 @@ Upstream tree: https://github.com/Coldcard/firmware
 | Version | Date | Notes |
 | --- | --- | --- |
 | 1.0 | 2026-07-31 | Initial technical synthesis in this repository |
+| 1.1 | 2026-07-31 | Incorporate Coinkite technical deep dive; hotfix/review-miss notes; upgrade docs + related refs |
 
 **Standards used in this file**
 
